@@ -5,6 +5,7 @@ export const queries = {
     'get all artists': queriesModule.getAllArtists,
     'get artist by id': queriesModule.getArtistById,
     'get all albums': queriesModule.getAllAlbums,
+    'get all albums with artists': queriesModule.getAllAlbumsWithArtists,
     'get album by id': queriesModule.getAlbumById,
     'get album by id with artists': queriesModule.getAlbumByIdWithArtists,
     'get albums by artist id': queriesModule.getAlbumsByArtistId,
@@ -14,6 +15,9 @@ export const queries = {
     'search artists': queriesModule.searchArtists,
     'search albums': queriesModule.searchAlbums,
     'get all albums by artist id': queriesModule.getAllAlbumsByArtistId,
+    "get artists with popularity greater than 80": queriesModule.getArtistsWithPopularityGreaterThan80,
+    "get artists with more than 1 million followers": queriesModule.getArtistsWithMoreThan1MillionFollowers,
+    "get all artists sorted by name": queriesModule.getAllArtistsSortedByName
 }
 
 export const mutations = {
@@ -42,4 +46,5 @@ export const mutations = {
         mutationsModule.toggleTrackExplicitssssssssssesssssssesesesesssss,
     'toggle track explicitssssssssssesssssssesesesesssssss':
         mutationsModule.toggleTrackExplicitssssssssssesssssssesesesesssssss,
+    "create new album with title and release date": mutationsModule.createNewAlbumWithTitleAndReleaseDate
 }

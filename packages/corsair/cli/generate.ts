@@ -20,15 +20,15 @@ function getCorsairDrizzleKitPath(): string {
 }
 
 async function runDrizzleCommand(
-  command: 'pull' | 'generate',
+  command: 'introspect' | 'generate',
   config: { schema: string; out: string; dialect: string; url: string }
 ): Promise<boolean> {
   return new Promise(resolve => {
     const drizzleKitPath = getCorsairDrizzleKitPath()
     const args: string[] = [command]
 
-    if (command === 'pull') {
-      // pull command needs database URL and output directory
+    if (command === 'introspect') {
+      // introspect command needs database URL and output directory
       args.push('--dialect', config.dialect)
       args.push('--out', config.out)
       args.push('--url', config.url)
@@ -77,7 +77,7 @@ export async function generate() {
   try {
     // Pull current schema from database
     console.log('📥 Pulling current schema from database...\n')
-    const pullSuccess = await runDrizzleCommand('pull', drizzleConfig)
+    const pullSuccess = await runDrizzleCommand('introspect', drizzleConfig)
 
     if (!pullSuccess) {
       console.error('❌ Failed to pull schema from database')

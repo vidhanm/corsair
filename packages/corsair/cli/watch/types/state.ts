@@ -66,6 +66,8 @@ export interface LLMResponse {
     notes: string
     pseudocode?: string
     function_name?: string
+    optimistic?: string
+    validate?: string
   }
 }
 

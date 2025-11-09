@@ -14,6 +14,7 @@ import { stateMachine } from '../core/state-machine.js'
 import { llm } from '../../../llm/index.js'
 import { z } from 'zod'
 import { operationGeneratorPrompt } from '../../../llm/prompts/operation-generator.js'
+import { mutationGeneratorPrompt } from '../../../llm/prompts/mutation-generator.js'
 
 /**
  * Query Generator Handler
@@ -35,6 +36,18 @@ class QueryGenerator {
       .string()
       .describe(
         'The actual logic of the function. This will be added to the handler of the operation. The response type will be inferred from the function.'
+      ),
+    optimistic: z
+      .string()
+      .optional()
+      .describe(
+        'For mutations only: optimistic update function that returns preview state before server confirms.'
+      ),
+    validate: z
+      .string()
+      .optional()
+      .describe(
+        'For mutations only: validation function that checks permissions and business rules before execution.'
       ),
     notes: z
       .string()
@@ -63,15 +76,15 @@ class QueryGenerator {
       this.handleQueryDetected.bind(this)
     )
 
-    // eventBus.on(
-    //   CorsairEvent.NEW_QUERY_ADDED,
-    //   this.handleNewQueryAdded.bind(this)
-    // );
+    eventBus.on(
+      CorsairEvent.NEW_QUERY_ADDED,
+      this.handleNewQueryAdded.bind(this)
+    );
 
-    // eventBus.on(
-    //   CorsairEvent.NEW_MUTATION_ADDED,
-    //   this.handleNewMutationAdded.bind(this)
-    // );
+    eventBus.on(
+      CorsairEvent.NEW_MUTATION_ADDED,
+      this.handleNewMutationAdded.bind(this)
+    );
 
     eventBus.on(
       CorsairEvent.LLM_ANALYSIS_STARTED,
@@ -170,37 +183,37 @@ export default ${generatedQuery.functionName};
     this.schema = schema
   }
 
-  // private async handleNewQueryAdded(data: NewQueryAddedEvent) {
-  //   // Only process LLM for initial detection (no configurationRules)
-  //   // User-submitted operations will be handled through LLM_ANALYSIS_STARTED event
-  //   if (data.configurationRules === undefined) {
-  //     await this.processWithLLM({
-  //       operationType: "query",
-  //       operationName: data.operationName,
-  //       functionName: data.functionName,
-  //       prompt: data.prompt,
-  //       file: data.file,
-  //       lineNumber: data.lineNumber,
-  //       configurationRules: data.configurationRules,
-  //     });
-  //   }
-  // }
+  private async handleNewQueryAdded(data: NewQueryAddedEvent) {
+    // Only process LLM for initial detection (no configurationRules)
+    // User-submitted operations will be handled through LLM_ANALYSIS_STARTED event
+    if (data.configurationRules === undefined) {
+      await this.processWithLLM({
+        operationType: "query",
+        operationName: data.operationName,
+        functionName: data.functionName,
+        prompt: data.prompt,
+        file: data.file,
+        lineNumber: data.lineNumber,
+        configurationRules: data.configurationRules,
+      });
+    }
+  }
 
-  // private async handleNewMutationAdded(data: NewMutationAddedEvent) {
-  //   // Only process LLM for initial detection (no configurationRules)
-  //   // User-submitted operations will be handled through LLM_ANALYSIS_STARTED event
-  //   if (data.configurationRules === undefined) {
-  //     await this.processWithLLM({
-  //       operationType: "mutation",
-  //       operationName: data.operationName,
-  //       functionName: data.functionName,
-  //       prompt: data.prompt,
-  //       file: data.file,
-  //       lineNumber: data.lineNumber,
-  //       configurationRules: data.configurationRules,
-  //     });
-  //   }
-  // }
+  private async handleNewMutationAdded(data: NewMutationAddedEvent) {
+    // Only process LLM for initial detection (no configurationRules)
+    // User-submitted operations will be handled through LLM_ANALYSIS_STARTED event
+    if (data.configurationRules === undefined) {
+      await this.processWithLLM({
+        operationType: "mutation",
+        operationName: data.operationName,
+        functionName: data.functionName,
+        prompt: data.prompt,
+        file: data.file,
+        lineNumber: data.lineNumber,
+        configurationRules: data.configurationRules,
+      });
+    }
+  }
 
   private async processWithLLM(operation: {
     operationType: 'query' | 'mutation'
@@ -217,14 +230,19 @@ export default ${generatedQuery.functionName};
     }
     try {
       // Create a detailed prompt for the LLM
-      const message = operationGeneratorPrompt({
-        schema,
-        type: operation.operationType,
-        name: operation.operationName,
-      })
+      const message = operation.operationType === 'mutation'
+        ? mutationGeneratorPrompt({
+            schema,
+            name: operation.operationName,
+          })
+        : operationGeneratorPrompt({
+            schema,
+            type: operation.operationType,
+            name: operation.operationName,
+          })
 
-      // Get the provider from environment variable or default to "openai"
-      const provider = 'openai'
+      // Get the provider from environment variable or default to "cerebras"
+      const provider = 'cerebras'
 
       // Call the LLM
       const response = await llm({

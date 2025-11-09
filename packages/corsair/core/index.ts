@@ -25,6 +25,7 @@ export * from './router'
 // } from '@tanstack/react-query'
 
 export { createNextApiHandler } from '@trpc/server/adapters/next'
+export { fetchRequestHandler } from '@trpc/server/adapters/fetch'
 
 export { z } from 'zod'
 export { default as superjson } from 'superjson'

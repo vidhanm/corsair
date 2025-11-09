@@ -350,6 +350,8 @@ class StateMachine {
             notes: data.response.notes,
             pseudocode: (data.response as any).pseudocode,
             function_name: (data.response as any).function_name,
+            optimistic: (data.response as any).optimistic,
+            validate: (data.response as any).validate,
           },
         }
 

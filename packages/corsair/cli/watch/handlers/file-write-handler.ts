@@ -12,6 +12,9 @@ export interface OperationToWrite {
   prompt: string
   inputType: string
   handler: string
+  // Mutation-specific fields (full.md format)
+  optimistic?: string
+  validate?: string
   dependencies?: {
     tables?: string[]
     columns?: string[]
@@ -60,15 +63,39 @@ export class FileWriteHandler {
 
     const inputTypeCode = this.parseInputTypeFromLLM(operation.inputType)
     const handlerCode = this.parseHandlerFromLLM(operation.handler)
-    let newOperationCode = `
+
+    let newOperationCode: string
+
+    if (operation.operationType === 'mutation') {
+      // New full.md format: export default { input, execute, optimistic, validate }
+      const optimisticCode = operation.optimistic ||
+        `(corsair, data) => ({ ...data, id: \`temp_\${Date.now()}\` })`
+      const validateCode = operation.validate ||
+        `async (corsair, data) => { if (!corsair.currentUser) throw new Error('Authentication required') }`
+
+      newOperationCode = `
+    import { z } from 'corsair'
+    import { drizzle } from 'corsair/db/types'
+
+    export default {
+      input: ${inputTypeCode},
+      execute: ${handlerCode},
+      optimistic: ${optimisticCode},
+      validate: ${validateCode}
+    }
+  `
+    } else {
+      // Queries keep tRPC procedure format
+      newOperationCode = `
     import { z } from 'corsair'
     import { procedure } from '../trpc/procedures'
     import { drizzle } from 'corsair/db/types'
 
     export const ${variableName} = procedure
       .input(${inputTypeCode})
-      .${isQuery ? 'query' : 'mutation'}(${handlerCode})
+      .query(${handlerCode})
   `
+    }
 
     if (operation.pseudocode) {
       newOperationCode += ``
@@ -152,6 +179,9 @@ export class FileWriteHandler {
     operationsFile.formatText()
     await operationsFile.save()
 
+    // Also update procedures.ts with inline definition to avoid circular dependency
+    await this.updateProceduresFile(operation, pathsResolved, inputTypeCode, handlerCode)
+
     await new Promise<void>(resolve => {
       const child = spawn('npx', ['--yes', 'tsc', '--noEmit'], {
         stdio: 'inherit',
@@ -161,6 +191,69 @@ export class FileWriteHandler {
       })
       child.on('close', () => resolve())
     })
+  }
+
+  private async updateProceduresFile(
+    operation: OperationToWrite,
+    pathsResolved: any,
+    inputTypeCode: string,
+    handlerCode: string
+  ): Promise<void> {
+    const proceduresPath = path.join(
+      path.dirname(pathsResolved.queriesDir),
+      'trpc',
+      'procedures.ts'
+    )
+
+    // Check if procedures file exists
+    if (!fs.existsSync(proceduresPath)) {
+      console.warn(`Procedures file not found at: ${proceduresPath}`)
+      return
+    }
+
+    try {
+      // Read the current procedures file
+      const content = await fsp.readFile(proceduresPath, 'utf8')
+
+      // Find the closing brace of the router object
+      // Look for the pattern: })  followed by export type
+      const routerEndPattern = /\}\)\s*\n\s*export type CorsairProcedureRouter/
+
+      if (!routerEndPattern.test(content)) {
+        console.warn('Could not find router closing pattern in procedures.ts')
+        return
+      }
+
+      // Determine the method type based on operation type
+      const methodType = operation.operationType === 'query' ? 'query' : 'mutation'
+      const operationTypeLabel = operation.operationType === 'query' ? 'query' : 'mutation'
+
+      // Create the inline operation definition
+      const inlineOperation = `
+  // Auto-generated ${operationTypeLabel} (defined inline to avoid circular dependency)
+  '${operation.operationName}': procedure
+    .input(${inputTypeCode})
+    .${methodType}(${handlerCode}),`
+
+      // Insert the inline operation before the closing brace
+      const updatedContent = content.replace(
+        routerEndPattern,
+        `${inlineOperation}\n})\n\nexport type CorsairProcedureRouter`
+      )
+
+      // Format with prettier
+      const formattedContent = await format(updatedContent, {
+        parser: 'typescript',
+      })
+
+      // Write back to file
+      await fsp.writeFile(proceduresPath, formattedContent)
+
+      console.log(`✓ Updated procedures.ts with inline ${operationTypeLabel} for: ${operation.operationName}`)
+    } catch (error) {
+      console.error('Error updating procedures.ts:', error)
+      // Don't throw - this is a nice-to-have feature
+    }
   }
 
   public parseInputTypeFromLLM(inputTypeString: string): string {
@@ -173,6 +266,24 @@ export class FileWriteHandler {
 
   public parseHandlerFromLLM(handlerString: string): string {
     const cleaned = handlerString.trim()
+
+    // Fix common destructuring mistakes from LLM
+    // If it's "async (input, ctx)" change to "async ({ input, ctx })"
+    if (cleaned.match(/^async\s*\(\s*input\s*,\s*ctx\s*\)/)) {
+      return cleaned.replace(/^async\s*\(\s*input\s*,\s*ctx\s*\)/, 'async ({ input, ctx })')
+    }
+
+    // If it's "async (ctx)" change to "async ({ ctx })"
+    if (cleaned.match(/^async\s*\(\s*ctx\s*\)/)) {
+      return cleaned.replace(/^async\s*\(\s*ctx\s*\)/, 'async ({ ctx })')
+    }
+
+    // Already has correct destructuring
+    if (cleaned.startsWith('async ({')) {
+      return cleaned
+    }
+
+    // Legacy handling
     if (cleaned.startsWith('async (')) {
       return cleaned
     }

@@ -5,16 +5,15 @@ async function main() {
 
   if (
     !command ||
-    !["generate", "check", "migrate", "watch"].includes(command)
+    !["generate", "check", "migrate", "watch", "test-llm"].includes(command)
   ) {
     console.log("Corsair CLI - Database migration tool\n");
     console.log("Usage:");
     console.log("  corsair generate  - Generate migrations from schema");
     console.log("  corsair check     - Test migrations in a transaction");
     console.log("  corsair migrate   - Apply migrations to database");
-    console.log(
-      "  corsair watch     - Watch for changes and generate API routes\n"
-    );
+    console.log("  corsair watch     - Watch for changes and generate API routes");
+    console.log("  corsair test-llm  - Test LLM connection (Cerebras/OpenAI)\n");
     process.exit(1);
   }
 
@@ -37,6 +36,11 @@ async function main() {
     case "watch": {
       const { watch } = await import("./watch/index.js");
       await watch();
+      break;
+    }
+    case "test-llm": {
+      const { testLLM } = await import("./test-llm.js");
+      await testLLM();
       break;
     }
   }

@@ -1,27 +1,29 @@
-import { createCorsairTRPC, z } from 'corsair'
-import { type DatabaseContext, schema } from '../types'
-import { drizzle } from 'corsair/db/types'
+import { createCorsairTRPC, z } from "corsair";
+import { type DatabaseContext, schema } from "../types";
+import { drizzle } from "corsair/db/types";
+import createArtistMutation from "../mutations/create-artist";
+import createAlbumMutation from "../mutations/create-album";
 
 // Initialize tRPC with proper context typing using the core factory
-const t = createCorsairTRPC<DatabaseContext>()
-export const { router, procedure } = t
+const t = createCorsairTRPC<DatabaseContext>();
+export const { router, procedure } = t;
 
 // Example Query: "get artist by id" written as tRPC procedure
 export const getArtistById = procedure
   .input(
     z.object({
       id: z.string(),
-    })
+    }),
   )
   .query(async ({ input, ctx }) => {
     const [artist] = await ctx.db
       .select()
       .from(ctx.schema.artists)
       .where(drizzle.eq(ctx.schema.artists.id, input.id))
-      .limit(1)
+      .limit(1);
 
-    return artist || null
-  })
+    return artist || null;
+  });
 
 // Example Mutation: "update artist popularity" written as tRPC procedure
 export const updateArtistPopularity = procedure
@@ -29,7 +31,7 @@ export const updateArtistPopularity = procedure
     z.object({
       artistId: z.string(),
       popularity: z.number().min(0).max(100),
-    })
+    }),
   )
   .mutation(async ({ input, ctx }) => {
     const [artist] = await ctx.db
@@ -38,10 +40,10 @@ export const updateArtistPopularity = procedure
         popularity: Math.max(0, Math.min(100, input.popularity)),
       })
       .where(drizzle.eq(ctx.schema.artists.id, input.artistId))
-      .returning()
+      .returning();
 
-    return artist || null
-  })
+    return artist || null;
+  });
 
 const createAlbum = procedure
   .input(
@@ -53,29 +55,29 @@ const createAlbum = procedure
       release_date_precision: z.string(),
       total_tracks: z.number(),
       images: z.any(),
-    })
+    }),
   )
   .mutation(async ({ input, ctx }) => {
     const [album] = await ctx.db
       .insert(ctx.schema.albums)
       .values(input)
-      .returning()
-    return album
-  })
+      .returning();
+    return album;
+  });
 
 const getAllArtists = procedure
   .input(z.object({}))
   .query(async ({ input, ctx }) => {
-    const artists = await ctx.db.select().from(ctx.schema.artists)
-    return artists
-  })
+    const artists = await ctx.db.select().from(ctx.schema.artists);
+    return artists;
+  });
 
 const getAllAlbums = procedure
   .input(z.object({}))
   .query(async ({ input, ctx }) => {
-    const albums = await ctx.db.select().from(ctx.schema.albums)
-    return albums
-  })
+    const albums = await ctx.db.select().from(ctx.schema.albums);
+    return albums;
+  });
 
 const getAlbumsByArtistId = procedure
   .input(z.object({ artistId: z.string() }))
@@ -84,21 +86,85 @@ const getAlbumsByArtistId = procedure
       .select()
       .from(ctx.schema.albums)
       // this is wrong but i just have it like this for now
-      .where(drizzle.eq(ctx.schema.albums.id, input.artistId))
-    return albums
-  })
+      .where(drizzle.eq(ctx.schema.albums.id, input.artistId));
+    return albums;
+  });
 
 // New tRPC router using procedure syntax with natural language keys
 export const corsairProcedureRouter = router({
-  'get artist by id': getArtistById,
-  'get all artists': getAllArtists,
-  'get all albums': getAllAlbums,
-  'get albums by artist id': getAlbumsByArtistId,
-  'update artist popularity': updateArtistPopularity,
-  'create album': createAlbum,
+  "get artist by id": getArtistById,
+  "get all artists": getAllArtists,
+  "get all albums": getAllAlbums,
+  "get albums by artist id": getAlbumsByArtistId,
+  "update artist popularity": updateArtistPopularity,
+  "create album": createAlbum,
+
+  // Get all albums with their artists
+  "get all albums with artists": procedure
+    .input(z.object({}))
+    .query(async ({ ctx }) => {
+      const albumsWithArtists = await ctx.db
+        .select({
+          albumId: ctx.schema.albums.id,
+          albumName: ctx.schema.albums.name,
+          album_type: ctx.schema.albums.album_type,
+          release_date: ctx.schema.albums.release_date,
+          release_date_precision: ctx.schema.albums.release_date_precision,
+          total_tracks: ctx.schema.albums.total_tracks,
+          albumImages: ctx.schema.albums.images,
+          external_urls: ctx.schema.albums.external_urls,
+          uri: ctx.schema.albums.uri,
+          href: ctx.schema.albums.href,
+          artist: {
+            id: ctx.schema.artists.id,
+            name: ctx.schema.artists.name,
+            popularity: ctx.schema.artists.popularity,
+            followers: ctx.schema.artists.followers,
+            genres: ctx.schema.artists.genres,
+            images: ctx.schema.artists.images,
+            external_urls: ctx.schema.artists.external_urls,
+            uri: ctx.schema.artists.uri,
+            href: ctx.schema.artists.href,
+          },
+        })
+        .from(ctx.schema.albums)
+        .innerJoin(
+          ctx.schema.album_artists,
+          drizzle.eq(ctx.schema.albums.id, ctx.schema.album_artists.album_id),
+        )
+        .innerJoin(
+          ctx.schema.artists,
+          drizzle.eq(ctx.schema.album_artists.artist_id, ctx.schema.artists.id),
+        );
+
+      // Group albums by ID and collect their artists
+      const albumsMap = new Map();
+
+      for (const row of albumsWithArtists) {
+        if (!albumsMap.has(row.albumId)) {
+          albumsMap.set(row.albumId, {
+            id: row.albumId,
+            name: row.albumName,
+            album_type: row.album_type,
+            release_date: row.release_date,
+            release_date_precision: row.release_date_precision,
+            total_tracks: row.total_tracks,
+            images: row.albumImages,
+            external_urls: row.external_urls,
+            uri: row.uri,
+            href: row.href,
+            artists: [],
+          });
+        }
+
+        albumsMap.get(row.albumId).artists.push(row.artist);
+      }
+
+      return Array.from(albumsMap.values());
+    }),
 
   // Example of a more complex query with joins
-  'get album by id with artists': procedure
+  "get album by id with artists": procedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input, ctx }) => {
       const albumWithArtists = await ctx.db
@@ -128,20 +194,20 @@ export const corsairProcedureRouter = router({
         .from(ctx.schema.albums)
         .innerJoin(
           ctx.schema.album_artists,
-          drizzle.eq(ctx.schema.albums.id, ctx.schema.album_artists.album_id)
+          drizzle.eq(ctx.schema.albums.id, ctx.schema.album_artists.album_id),
         )
         .innerJoin(
           ctx.schema.artists,
-          drizzle.eq(ctx.schema.album_artists.artist_id, ctx.schema.artists.id)
+          drizzle.eq(ctx.schema.album_artists.artist_id, ctx.schema.artists.id),
         )
-        .where(drizzle.eq(ctx.schema.albums.id, input.id))
+        .where(drizzle.eq(ctx.schema.albums.id, input.id));
 
       if (albumWithArtists.length === 0) {
-        return null
+        return null;
       }
 
       // Group artists for the album
-      const firstRow = albumWithArtists[0]
+      const firstRow = albumWithArtists[0];
       const album = {
         id: firstRow.albumId,
         name: firstRow.albumName,
@@ -153,23 +219,80 @@ export const corsairProcedureRouter = router({
         external_urls: firstRow.external_urls,
         uri: firstRow.uri,
         href: firstRow.href,
-        artists: albumWithArtists.map(row => row.artist),
-      }
+        artists: albumWithArtists.map((row) => row.artist),
+      };
 
-      return album
+      return album;
     }),
 
   // Example search query
-  'search artists': procedure
+  "search artists": procedure
     .input(z.object({ query: z.string() }))
     .query(async ({ input, ctx }) => {
       const artists = await ctx.db
         .select()
         .from(ctx.schema.artists)
-        .where(drizzle.ilike(ctx.schema.artists.name, `%${input.query}%`))
+        .where(drizzle.ilike(ctx.schema.artists.name, `%${input.query}%`));
 
-      return artists
+      return artists;
     }),
-})
 
-export type CorsairProcedureRouter = typeof corsairProcedureRouter
+  // Auto-generated query (defined inline to avoid circular dependency)
+  "get artists with popularity greater than 80": procedure
+    .input(z.object({}))
+    .query(async ({ ctx }) => {
+      const highPopularityArtists = await ctx.db
+        .select()
+        .from(ctx.schema.artists)
+        .where(drizzle.gt(ctx.schema.artists.popularity, 80));
+
+      return highPopularityArtists;
+    }),
+
+  // Auto-generated query (defined inline to avoid circular dependency)
+  "get artists with more than 1 million followers": procedure
+    .input(z.object({}))
+    .query(async ({ ctx }) => {
+      const artistsWithHighFollowers = await ctx.db
+        .select()
+        .from(ctx.schema.artists)
+        .where(drizzle.gt(ctx.schema.artists.followers, 1000000));
+
+      return artistsWithHighFollowers;
+    }),
+
+  // Auto-generated query (defined inline to avoid circular dependency)
+  "get all artists sorted by name": procedure
+    .input(z.object({}))
+    .query(async ({ ctx }) => {
+      const artists = await ctx.db
+        .select()
+        .from(ctx.schema.artists)
+        .orderBy(ctx.schema.artists.name);
+
+      return artists;
+    }),
+
+  // Mutations (using 4-property format from full.md)
+  "create artist": procedure
+    .input(createArtistMutation.input)
+    .mutation(async ({ input, ctx }) => {
+      // Run validation before execution
+      await createArtistMutation.validate(ctx, input)
+
+      // Execute the mutation
+      return await createArtistMutation.execute(ctx, input)
+    }),
+
+  "create new album with title and release date": procedure
+    .input(createAlbumMutation.input)
+    .mutation(async ({ input, ctx }) => {
+      // Run validation before execution
+      await createAlbumMutation.validate(ctx, input)
+
+      // Execute the mutation
+      return await createAlbumMutation.execute(ctx, input)
+    }),
+});
+
+export type CorsairProcedureRouter = typeof corsairProcedureRouter;

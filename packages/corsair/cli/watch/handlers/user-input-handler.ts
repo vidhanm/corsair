@@ -115,6 +115,8 @@ class UserInputHandler {
         prompt: operation.prompt,
         inputType: inputType,
         handler: handler,
+        optimistic: llmResponse.rawResponse.optimistic,
+        validate: llmResponse.rawResponse.validate,
         pseudocode: llmResponse.rawResponse.pseudocode,
         functionNameSuggestion: llmResponse.rawResponse.function_name,
         targetFilePath: operation.file,
