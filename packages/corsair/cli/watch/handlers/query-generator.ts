@@ -15,6 +15,7 @@ import { llm } from '../../../llm/index.js'
 import { z } from 'zod'
 import { operationGeneratorPrompt } from '../../../llm/prompts/operation-generator.js'
 import { mutationGeneratorPrompt } from '../../../llm/prompts/mutation-generator.js'
+import { getProvider } from '../core/provider.js'
 
 /**
  * Query Generator Handler
@@ -241,8 +242,8 @@ export default ${generatedQuery.functionName};
             name: operation.operationName,
           })
 
-      // Get the provider from environment variable or default to "cerebras"
-      const provider = 'cerebras'
+      // Get the configured provider
+      const provider = getProvider()
 
       // Call the LLM
       const response = await llm({

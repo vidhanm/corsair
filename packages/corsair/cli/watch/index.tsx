@@ -14,6 +14,7 @@ import {
   getResolvedPaths,
   validatePaths,
 } from '../config.js'
+import { selectProvider } from './core/provider.js'
 
 // Import handlers to initialize them
 import './handlers/file-change-handler.js'
@@ -42,6 +43,10 @@ export async function watch(): Promise<void> {
   // Load environment variables first
   const cfg = loadConfig()
   loadEnv(cfg.envFile ?? '.env.local')
+
+  // Select LLM provider based on available API keys
+  selectProvider()
+  console.log() // Add blank line for readability
 
   // Start file watcher - watch entire directory but filter in the change handler
   const watcher = chokidar.watch('.', {
