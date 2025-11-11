@@ -21,7 +21,7 @@
   "editor.formatOnPaste": true, // optional
   "editor.formatOnSave": true, // optional
   "editor.formatOnSaveMode": "file", // required to format on save
-  "files.autoSave": "afterDelay",
+  "files.autoSave": "off",
   "[typescriptreact]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   } // optional but recommended

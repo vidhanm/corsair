@@ -158,9 +158,6 @@ export function ArtistsAlbumsView({
                 {popularArtists.length} artists
               </span>
             </div>
-            <p className="text-sm text-muted-foreground">
-              🤖 Auto-generated query using Cerebras AI
-            </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {popularArtists.map((artist) => (
                 <ArtistCard
