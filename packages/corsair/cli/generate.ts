@@ -20,7 +20,7 @@ function getCorsairDrizzleKitPath(): string {
 }
 
 async function runDrizzleCommand(
-  command: 'introspect' | 'generate',
+  command: 'pull' | 'generate',
   config: { schema: string; out: string; dialect: string; url: string }
 ): Promise<boolean> {
   return new Promise(resolve => {
