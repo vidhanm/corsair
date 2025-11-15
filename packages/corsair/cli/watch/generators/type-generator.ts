@@ -8,7 +8,7 @@ export function generateTypes(
   schema: SchemaDefinition,
   tableName: string
 ): string {
-  const table = schema.tables.find((t) => t.name === tableName);
+  const table = schema.tables?.find((t) => t.name === tableName);
 
   if (!table) {
     return 'export type QueryResult = any;';

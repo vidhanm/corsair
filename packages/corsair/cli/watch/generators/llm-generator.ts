@@ -39,11 +39,11 @@ function generateBasicQuery(
   const nlLower = query.nlQuery.toLowerCase();
 
   // Guess the table name from the query
-  const tableGuess = schema.tables.find((table) => {
+  const tableGuess = schema.tables?.find((table) => {
     return nlLower.includes(table.name.toLowerCase());
   });
 
-  const tableName = tableGuess?.name || schema.tables[0]?.name || 'table';
+  const tableName = tableGuess?.name || schema.tables?.[0]?.name || 'table';
 
   return `import { db } from '../db';
 import { ${tableName} } from '../schema';

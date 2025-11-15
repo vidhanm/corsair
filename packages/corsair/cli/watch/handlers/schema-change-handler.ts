@@ -61,27 +61,27 @@ class SchemaChangeHandler {
    */
   private hasSchemaChanged(before: SchemaDefinition, after: SchemaDefinition): boolean {
     // Compare number of tables
-    if (before.tables.length !== after.tables.length) {
+    if (before.tables?.length !== after.tables?.length) {
       return true;
     }
 
     // Compare each table
-    for (let i = 0; i < before.tables.length; i++) {
-      const beforeTable = before.tables[i];
-      const afterTable = after.tables.find(t => t.name === beforeTable.name);
+    for (let i = 0; i < (before.tables?.length || 0); i++) {
+      const beforeTable = before.tables?.[i];
+      const afterTable = after.tables?.find(t => t.name === beforeTable?.name);
 
       if (!afterTable) {
         return true; // Table was removed
       }
 
-      if (this.hasTableChanged(beforeTable, afterTable)) {
+      if (beforeTable && this.hasTableChanged(beforeTable, afterTable)) {
         return true;
       }
     }
 
     // Check for new tables
-    for (const afterTable of after.tables) {
-      const beforeTable = before.tables.find(t => t.name === afterTable.name);
+    for (const afterTable of after.tables || []) {
+      const beforeTable = before.tables?.find(t => t.name === afterTable.name);
       if (!beforeTable) {
         return true; // New table was added
       }
@@ -203,24 +203,24 @@ class SchemaChangeHandler {
     const changes: string[] = [];
 
     // Check for added tables
-    for (const afterTable of after.tables) {
-      const beforeTable = before.tables.find(t => t.name === afterTable.name);
+    for (const afterTable of after.tables || []) {
+      const beforeTable = before.tables?.find(t => t.name === afterTable.name);
       if (!beforeTable) {
         changes.push(`Added table: ${afterTable.name}`);
       }
     }
 
     // Check for removed tables
-    for (const beforeTable of before.tables) {
-      const afterTable = after.tables.find(t => t.name === beforeTable.name);
+    for (const beforeTable of before.tables || []) {
+      const afterTable = after.tables?.find(t => t.name === beforeTable.name);
       if (!afterTable) {
         changes.push(`Removed table: ${beforeTable.name}`);
       }
     }
 
     // Check for modified tables
-    for (const beforeTable of before.tables) {
-      const afterTable = after.tables.find(t => t.name === beforeTable.name);
+    for (const beforeTable of before.tables || []) {
+      const afterTable = after.tables?.find(t => t.name === beforeTable.name);
       if (afterTable && this.hasTableChanged(beforeTable, afterTable)) {
         const tableChanges = this.getTableChangesSummary(beforeTable, afterTable);
         changes.push(`Modified table ${beforeTable.name}: ${tableChanges.join(', ')}`);

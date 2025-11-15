@@ -11,15 +11,11 @@ export const sendSlackMessage = procedure
     })
   )
   .mutation(async ({ input, ctx }) => {
-    const slack = ctx.plugins.slack.sendMessage({
-      channelId: 'general',
-      message: '',
+    // Use actual input values and await the async operation
+    const result = await ctx.plugins.slack.sendMessage({
+      channelId: input.channel,
+      content: input.message,
     })
 
-    // return slack.sendMessage({
-    //   channelId: input.channel,
-    //   message: input.message,
-    // })
-
-    return true
+    return result
   })
